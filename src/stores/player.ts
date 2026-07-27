@@ -15,6 +15,7 @@ export const usePlayerStore = defineStore('player', () => {
   const isMuted = ref(false)
   const playMode = ref<PlayMode>('sequence')
   const playHistory = ref<Song[]>([])
+  const showLyric = ref(false)
 
   const progress = computed(() => duration.value ? (currentTime.value / duration.value) * 100 : 0)
 
@@ -108,6 +109,7 @@ export const usePlayerStore = defineStore('player', () => {
     const modes: PlayMode[] = ['sequence', 'loop', 'random', 'single']
     playMode.value = modes[(modes.indexOf(playMode.value) + 1) % modes.length]
   }
+  function toggleLyric() { showLyric.value = !showLyric.value }
 
   function addToPlaylist(song: Song) {
     if (!playlist.value.some(s => s.id === song.id)) playlist.value.push(song)
@@ -133,10 +135,10 @@ export const usePlayerStore = defineStore('player', () => {
 
   return {
     playlist, currentSong, currentIndex, isPlaying,
-    currentTime, duration, volume, isMuted, playMode, playHistory,
+    currentTime, duration, volume, isMuted, playMode, playHistory, showLyric,
     progress,
     play, pause, resume, togglePlay, playPrev, playNext,
-    seek, setVolume, toggleMute, toggleMode,
+    seek, setVolume, toggleMute, toggleMode, toggleLyric,
     addToPlaylist, removeFromPlaylist, clearPlaylist, clearHistory,
     playAll,
   }

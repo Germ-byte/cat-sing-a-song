@@ -1,4 +1,10 @@
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
+import LyricPanel from './LyricPanel.vue'
+import PlayerBar from './PlayerBar.vue'
+import { usePlayerStore } from '@/stores/player'
+
+const { showLyric } = storeToRefs(usePlayerStore())
 </script>
 <template>
   <div class="layout">
@@ -50,25 +56,27 @@
         </nav>
       </aside>
 
-      <!-- 主内容 -->
-      <main class="main-content">
-        <router-view v-slot="{ Component }">
-          <transition name="fade" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </router-view>
-      </main>
+      <div class="content-area">
+        <!-- 主内容 -->
+        <main class="main-content">
+          <router-view v-slot="{ Component }">
+            <transition name="fade" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
+        </main>
+        <transition name="lyric-slide">
+          <aside v-if="showLyric" class="lyric-sidebar">
+            <LyricPanel />
+          </aside>
+        </transition>
+      </div>
     </div>
 
     <!-- 底部播放栏 -->
     <PlayerBar />
   </div>
 </template>
-
-<script lang="ts">
-import PlayerBar from './PlayerBar.vue'
-export default { components: { PlayerBar } }
-</script>
 
 <style scoped>
 .layout {
@@ -177,9 +185,31 @@ export default { components: { PlayerBar } }
 }
 
 /* 主内容 */
+.content-area {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
 .main-content {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   background: var(--bg-primary);
+}
+.lyric-sidebar {
+  width: 320px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--border);
+}
+.lyric-slide-enter-active,
+.lyric-slide-leave-active {
+  transition: width 0.25s ease, opacity 0.25s ease;
+}
+.lyric-slide-enter-from,
+.lyric-slide-leave-to {
+  width: 0;
+  opacity: 0;
 }
 </style>

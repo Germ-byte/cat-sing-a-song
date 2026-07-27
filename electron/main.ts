@@ -1,23 +1,41 @@
 import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage } from 'electron'
 import path from 'path'
+import net from 'net'
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
+const API_PORT = 35490
 
 let mainWindow: BrowserWindow | null = null
 let isQuiting = false
 
+// 检测端口是否可用
+function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer()
+    server.once('error', () => resolve(false))
+    server.once('listening', () => {
+      server.close(() => resolve(true))
+    })
+    server.listen(port, '127.0.0.1')
+  })
+}
+
 // 启动内嵌的网易云音乐 API 服务
 async function startMusicApiServer() {
   try {
+    const available = await isPortAvailable(API_PORT)
+    if (!available) {
+      console.log(`⚡ 端口 ${API_PORT} 已被占用，API 服务可能已在运行，跳过启动`)
+      return
+    }
     const { serveNcmApi } = require('NeteaseCloudMusicApi')
     await serveNcmApi({
-      port: 35490,
+      port: API_PORT,
       host: '127.0.0.1',
     })
-    console.log('✅ 音乐API服务已启动: http://127.0.0.1:35490')
+    console.log(`✅ 音乐API服务已启动: http://127.0.0.1:${API_PORT}`)
   } catch (e: any) {
-    // 如果 serveNcmApi 不存在，尝试其他启动方式
-    console.warn('serveNcmApi not found, trying alternative...', e.message)
+    console.warn('API服务启动异常:', e.message)
   }
 }
 

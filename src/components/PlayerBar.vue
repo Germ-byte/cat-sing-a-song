@@ -5,7 +5,7 @@ import { storeToRefs } from 'pinia'
 import { formatDuration } from '@/api/music'
 
 const store = usePlayerStore()
-const { currentSong, isPlaying, currentTime, duration, volume, isMuted, playMode, progress } = storeToRefs(store)
+const { currentSong, isPlaying, currentTime, duration, volume, isMuted, playMode, progress, showLyric } = storeToRefs(store)
 
 const timeText = computed(() => formatDuration(currentTime.value * 1000))
 const durationText = computed(() => formatDuration(duration.value * 1000))
@@ -70,8 +70,16 @@ function onProgressClick(e: MouseEvent) {
       </div>
     </div>
 
-    <!-- 右：音量 -->
+    <!-- 右：歌词与音量 -->
     <div class="player-right">
+      <button
+        class="lyric-toggle"
+        :class="{ active: showLyric }"
+        title="歌词"
+        @click="store.toggleLyric"
+      >
+        词
+      </button>
       <button class="icon-btn icon-btn-sm" @click="store.toggleMute">
         <svg v-if="isMuted || volume===0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
         <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>
@@ -187,6 +195,23 @@ function onProgressClick(e: MouseEvent) {
 /* 右 */
 .player-right {
   width: 160px; display: flex; align-items: center; gap: 6px; flex-shrink: 0; justify-content: flex-end;
+}
+.lyric-toggle {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-light);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+.lyric-toggle:hover,
+.lyric-toggle.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  color: var(--accent);
 }
 .volume-slider {
   width: 90px;

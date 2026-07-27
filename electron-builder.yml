@@ -6,6 +6,10 @@ directories:
 files:
   - dist/**/*
   - dist-electron/**/*
+  - node_modules/NeteaseCloudMusicApi/**/*
+asar: true
+asarUnpack:
+  - node_modules/NeteaseCloudMusicApi/**/*
 mac:
   category: public.app-category.music
   target:
@@ -13,20 +17,19 @@ mac:
       arch:
         - arm64
         - x64
-  icon: resources/icon.png
 win:
   target:
     - target: nsis
       arch:
         - x64
-  icon: resources/icon.png
 linux:
   target:
     - target: AppImage
       arch:
         - x64
-  icon: resources/icon.png
   category: Audio
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true
+  perMachine: true
+  createDesktopShortcut: true
