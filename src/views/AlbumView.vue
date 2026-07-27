@@ -1,55 +1,57 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { searchSongs, formatDuration, type Song } from '@/api/music'
+import { getAlbumDetail, formatDuration, type Song, type AlbumInfo } from '@/api/music'
 import { usePlayerStore } from '@/stores/player'
 import { useFavoritesStore } from '@/stores/favorites'
-import Pagination from '@/components/Pagination.vue'
 
 const route = useRoute()
 const store = usePlayerStore()
 const favorites = useFavoritesStore()
 
-const keyword = ref('')
-const songs = ref<Song[]>([])
-const total = ref(0)
 const loading = ref(false)
-const searched = ref(false)
-const currentPage = ref(1)
-const pageSize = 30
+const info = ref<AlbumInfo | null>(null)
+const songs = ref<Song[]>([])
 const openMenuSongId = ref<number | null>(null)
 
-async function search() {
-  const q = keyword.value.trim()
-  if (!q) return
+const albumId = computed(() => Number(route.params.id))
+
+async function load() {
+  if (!albumId.value) return
   loading.value = true
-  searched.value = true
+  openMenuSongId.value = null
   try {
-    const result = await searchSongs(q, pageSize, (currentPage.value - 1) * pageSize)
+    const result = await getAlbumDetail(albumId.value)
+    info.value = result.info
     songs.value = result.songs
-    total.value = result.total
   } catch (e) {
-    console.error('搜索失败:', e)
+    console.error('加载专辑失败:', e)
   } finally {
     loading.value = false
   }
 }
 
-function onPageChange(page: number) {
-  currentPage.value = page
-  search()
+function playSong(song: Song) {
+  store.play(song)
+}
+
+function playAll() {
+  if (songs.value.length) store.playAll(songs.value)
 }
 
 function toggleMenu(songId: number) {
   openMenuSongId.value = openMenuSongId.value === songId ? null : songId
 }
+
 function closeMenu() {
   openMenuSongId.value = null
 }
+
 function addToFavorite(song: Song, playlistId: string) {
   favorites.addSongToPlaylist(playlistId, song)
   closeMenu()
 }
+
 function createAndAdd(song: Song) {
   const name = window.prompt('请输入新歌单名称', '新建歌单')
   if (name === null) return
@@ -60,82 +62,67 @@ function createAndAdd(song: Song) {
   closeMenu()
 }
 
-watch(() => route.query.q, (q) => {
-  if (q) {
-    keyword.value = q as string
-    currentPage.value = 1
-    search()
-  }
-})
-
-onMounted(() => {
-  if (route.query.q) {
-    keyword.value = route.query.q as string
-    search()
-  }
-})
+watch(albumId, load)
+onMounted(load)
 </script>
 
 <template>
-  <div class="search-view" @click="closeMenu">
-    <!-- search input -->
-    <div class="search-hero">
-      <div class="search-box search-box-lg">
-        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-        </svg>
-        <input
-          v-model="keyword"
-          type="text"
-          placeholder="搜索歌曲、歌手、专辑..."
-          @keyup.enter="currentPage = 1; search()"
-        />
-        <button class="search-btn btn-accent" @click="currentPage = 1; search()">搜索</button>
+  <div class="album-view" @click="closeMenu">
+    <div v-if="loading" class="loading-wrap"><div class="spinner"></div></div>
+
+    <template v-else-if="info">
+      <!-- header -->
+      <div class="album-header">
+        <div class="album-cover">
+          <img v-if="info.cover" :src="info.cover" :alt="info.name" />
+          <div v-else class="song-cover-placeholder">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" /></svg>
+          </div>
+        </div>
+        <div class="album-meta">
+          <p class="album-label">专辑</p>
+          <h1 class="album-name">{{ info.name }}</h1>
+          <div class="album-sub">
+            <span class="album-artist">{{ info.artist }}</span>
+            <span class="dot">·</span>
+            <span>{{ info.publishTime }}</span>
+            <span class="dot">·</span>
+            <span>{{ info.size }} 首歌曲</span>
+          </div>
+          <p v-if="info.description" class="album-desc">{{ info.description }}</p>
+          <button class="btn-accent play-all-btn" :disabled="!songs.length" @click="playAll">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+            播放全部
+          </button>
+        </div>
       </div>
-    </div>
 
-    <!-- loading -->
-    <div v-if="loading" class="empty-state">
-      <div class="spinner"></div>
-    </div>
-
-    <!-- results -->
-    <template v-else-if="songs.length">
-      <p class="result-count">
-        找到 <span class="accent-text">{{ total }}</span> 首相关歌曲
-      </p>
-      <div class="card song-list">
+      <!-- song list -->
+      <div v-if="songs.length" class="card song-list">
         <div
-          v-for="song in songs"
+          v-for="(song, i) in songs"
           :key="song.id"
           class="song-row"
-          @click="store.play(song)"
+          @click="playSong(song)"
         >
-          <div class="song-cover relative">
-            <img v-if="song.cover" :src="song.cover" :alt="song.name" />
-            <div v-else class="song-cover-placeholder">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
-            </div>
-            <div class="play-overlay">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
-            </div>
-          </div>
+          <span class="song-index">{{ i + 1 }}</span>
           <div class="song-info">
             <div class="song-name truncate">{{ song.name }}</div>
             <div class="song-artist truncate">{{ song.artists }}</div>
           </div>
-          <span class="song-album">{{ song.album }}</span>
           <span class="song-duration">{{ formatDuration(song.duration) }}</span>
+
           <div class="fav-wrap relative" @click.stop>
             <button
               class="icon-btn icon-btn-sm fav-btn"
               title="收藏到歌单"
               @click="toggleMenu(song.id)"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" :fill="openMenuSongId === song.id ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
+              <svg width="16" height="16" viewBox="0 0 24 24" :fill="openMenuSongId === song.id ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2">
                 <path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z" />
               </svg>
             </button>
+
             <div v-if="openMenuSongId === song.id" class="fav-menu card">
               <div class="fav-menu-title">添加到歌单</div>
               <div v-if="favorites.playlists.length" class="fav-menu-list">
@@ -158,91 +145,115 @@ onMounted(() => {
               </button>
             </div>
           </div>
-          <button
-            class="icon-btn icon-btn-sm add-btn"
-            title="添加到播放列表"
-            @click.stop="store.addToPlaylist(song)"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
         </div>
       </div>
-      <Pagination
-        :total="total"
-        :page-size="pageSize"
-        :current="currentPage"
-        @update:current="onPageChange"
-      />
+      <div v-else class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+          <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+        </svg>
+        <span class="empty-title">专辑暂无歌曲</span>
+      </div>
     </template>
 
-    <!-- empty after search -->
-    <div v-else-if="searched && !loading" class="empty-state">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-      </svg>
-      <span class="empty-title">未找到相关歌曲</span>
-      <span class="empty-sub">试试其他关键词</span>
-    </div>
-
-    <!-- initial state -->
     <div v-else class="empty-state">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+        <circle cx="12" cy="12" r="10" />
       </svg>
-      <span class="empty-title">输入关键词开始搜索</span>
-      <span class="empty-sub">支持歌曲名、歌手名、专辑名搜索</span>
+      <span class="empty-title">未找到专辑信息</span>
     </div>
   </div>
 </template>
 
 <style scoped>
-.search-view {
+.album-view {
   padding: 28px 32px;
   overflow-y: auto;
   height: 100%;
 }
-.search-hero {
-  margin-bottom: 24px;
+.loading-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 100px 0;
 }
-.search-box-lg input {
-  height: 48px;
-  font-size: 16px;
-  padding-left: 42px;
-  padding-right: 88px;
+
+.album-header {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 28px;
 }
-.search-box-lg .search-icon {
-  width: 20px;
-  height: 20px;
-  left: 14px;
+.album-cover {
+  width: 180px;
+  height: 180px;
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-hover);
+  box-shadow: 0 8px 24px var(--shadow);
 }
-.search-btn {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 6px 18px;
+.album-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.album-cover .song-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.album-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+.album-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.album-name {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.album-sub {
   font-size: 13px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.result-count {
+.album-artist {
+  color: var(--accent);
+}
+.dot {
+  color: var(--text-muted);
+}
+.album-desc {
   font-size: 13px;
   color: var(--text-muted);
-  margin-bottom: 12px;
+  margin-top: 6px;
+  max-width: 640px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
-.accent-text {
-  color: var(--accent);
-  font-weight: 600;
+.play-all-btn {
+  width: max-content;
+  margin-top: 12px;
 }
+
 .song-list {
   padding: 4px 0;
-}
-.add-btn {
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.song-row:hover .add-btn {
-  opacity: 1;
 }
 
 .fav-wrap {
@@ -253,9 +264,14 @@ onMounted(() => {
   transition: opacity 0.2s;
   color: var(--text-muted);
 }
-.song-row:hover .fav-btn {
+.song-row:hover .fav-btn,
+.fav-btn.active {
   opacity: 1;
 }
+.fav-btn svg {
+  color: inherit;
+}
+
 .fav-menu {
   position: absolute;
   right: 0;

@@ -1,20 +1,28 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { searchSongs, getRankSongs, getRankNames, formatDuration, type Song } from '@/api/music'
 import { usePlayerStore } from '@/stores/player'
+import Pagination from '@/components/Pagination.vue'
 
 const store = usePlayerStore()
 
 const rankNames = getRankNames()
 const currentRank = ref(rankNames[0] || '')
-const songs = ref<Song[]>([])
+const allSongs = ref<Song[]>([])
 const loading = ref(false)
+const currentPage = ref(1)
+const pageSize = 20
+
+const displaySongs = computed(() => {
+  const start = (currentPage.value - 1) * pageSize
+  return allSongs.value.slice(start, start + pageSize)
+})
 
 async function loadRank() {
   if (!currentRank.value) return
   loading.value = true
   try {
-    songs.value = await getRankSongs(currentRank.value)
+    allSongs.value = await getRankSongs(currentRank.value)
   } catch (e) {
     console.error('加载排行榜失败:', e)
   } finally {
@@ -23,10 +31,13 @@ async function loadRank() {
 }
 
 function playAll() {
-  if (songs.value.length) store.playAll(songs.value)
+  if (allSongs.value.length) store.playAll(allSongs.value)
 }
 
-watch(currentRank, loadRank)
+watch(currentRank, () => {
+  currentPage.value = 1
+  loadRank()
+})
 onMounted(loadRank)
 </script>
 
@@ -61,31 +72,39 @@ onMounted(loadRank)
     </div>
 
     <!-- song list -->
-    <div v-else-if="songs.length" class="card song-list">
-      <div
-        v-for="(song, i) in songs"
-        :key="song.id"
-        class="song-row"
-        @click="store.play(song)"
-      >
-        <span class="song-index" :class="{ top: i < 3 }">{{ i + 1 }}</span>
-        <div class="song-cover relative">
-          <img v-if="song.cover" :src="song.cover" :alt="song.name" />
-          <div v-else class="song-cover-placeholder">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+    <template v-else-if="allSongs.length">
+      <div class="card song-list">
+        <div
+          v-for="(song, i) in displaySongs"
+          :key="song.id"
+          class="song-row"
+          @click="store.play(song)"
+        >
+          <span class="song-index" :class="{ top: (currentPage - 1) * pageSize + i < 3 }">{{ (currentPage - 1) * pageSize + i + 1 }}</span>
+          <div class="song-cover relative">
+            <img v-if="song.cover" :src="song.cover" :alt="song.name" />
+            <div v-else class="song-cover-placeholder">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+            </div>
+            <div class="play-overlay">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+            </div>
           </div>
-          <div class="play-overlay">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><path d="M8 5v14l11-7z"/></svg>
+          <div class="song-info">
+            <div class="song-name truncate">{{ song.name }}</div>
+            <div class="song-artist truncate">{{ song.artists }}</div>
           </div>
+          <span class="song-album">{{ song.album }}</span>
+          <span class="song-duration">{{ formatDuration(song.duration) }}</span>
         </div>
-        <div class="song-info">
-          <div class="song-name truncate">{{ song.name }}</div>
-          <div class="song-artist truncate">{{ song.artists }}</div>
-        </div>
-        <span class="song-album">{{ song.album }}</span>
-        <span class="song-duration">{{ formatDuration(song.duration) }}</span>
       </div>
-    </div>
+      <Pagination
+        :total="allSongs.length"
+        :page-size="pageSize"
+        :current="currentPage"
+        @update:current="currentPage = $event"
+      />
+    </template>
 
     <!-- empty -->
     <div v-else class="empty-state">

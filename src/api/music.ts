@@ -190,3 +190,80 @@ export function formatPlayCount(count: number): string {
   if (count >= 10000) return `${(count / 10000).toFixed(1)}万`
   return String(count)
 }
+
+// ===== 专辑 =====
+export interface AlbumInfo {
+  id: number
+  name: string
+  cover: string
+  artist: string
+  artistId: number
+  publishTime: string  // 格式化后的日期字符串
+  size: number         // 歌曲数量
+  description?: string
+}
+
+function formatPublishTime(ts: number): string {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// 获取专辑详情
+export async function getAlbumDetail(id: number): Promise<{ info: AlbumInfo; songs: Song[] }> {
+  try {
+    const { data } = await api.get('/album', { params: { id } })
+    const album = data?.album || {}
+    const info: AlbumInfo = {
+      id: album.id || id,
+      name: album.name || '',
+      cover: album.picUrl ? `${album.picUrl}?param=400y400` : '',
+      artist: album.artist?.name || '',
+      artistId: album.artist?.id || 0,
+      publishTime: formatPublishTime(album.publishTime),
+      size: album.size || (data?.songs || []).length || 0,
+      description: album.description || '',
+    }
+    const songs: Song[] = (data?.songs || []).map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      artists: (s.ar || []).map((a: any) => a.name).join(' / '),
+      artistsList: (s.ar || []).map((a: any) => ({ id: a.id, name: a.name })),
+      album: s.al?.name || info.name,
+      albumId: s.al?.id || info.id,
+      cover: s.al?.picUrl ? `${s.al.picUrl}?param=200y200` : info.cover,
+      duration: s.dt || 0,
+    }))
+    return { info, songs }
+  } catch (e) {
+    console.error('获取专辑详情失败:', e)
+    return {
+      info: { id, name: '', cover: '', artist: '', artistId: 0, publishTime: '', size: 0, description: '' },
+      songs: [],
+    }
+  }
+}
+
+// 获取歌手专辑列表
+export async function getArtistAlbums(artistId: number, limit = 30, offset = 0): Promise<{ albums: AlbumInfo[]; total: number }> {
+  try {
+    const { data } = await api.get('/artist/album', { params: { id: artistId, limit, offset } })
+    const albums: AlbumInfo[] = (data?.hotAlbums || []).map((a: any) => ({
+      id: a.id,
+      name: a.name || '',
+      cover: a.picUrl ? `${a.picUrl}?param=300y300` : '',
+      artist: a.artist?.name || '',
+      artistId: a.artist?.id || artistId,
+      publishTime: formatPublishTime(a.publishTime),
+      size: a.size || 0,
+      description: a.description || '',
+    }))
+    return { albums, total: data?.artist?.albumSize || albums.length }
+  } catch (e) {
+    console.error('获取歌手专辑失败:', e)
+    return { albums: [], total: 0 }
+  }
+}
