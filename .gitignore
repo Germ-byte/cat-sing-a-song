@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-electron/
+release/
+out/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local env
+.env.local
+.env.*.local
+
+# CatPaw
+.catpaw/
+
+# Lock file (optional, keep if you want reproducible builds)
+# package-lock.json
