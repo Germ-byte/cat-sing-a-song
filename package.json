@@ -16,10 +16,10 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@neteasecloudmusicapienhanced/api": "^4.39.0",
     "@vueuse/core": "^10.7.0",
     "axios": "^1.6.2",
     "electron-store": "^8.1.0",
-    "NeteaseCloudMusicApi": "^4.32.0",
     "pinia": "^2.1.7",
     "vue": "^3.4.0",
     "vue-router": "^4.2.5"

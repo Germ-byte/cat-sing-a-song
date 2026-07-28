@@ -6,10 +6,10 @@ directories:
 files:
   - dist/**/*
   - dist-electron/**/*
-  - node_modules/NeteaseCloudMusicApi/**/*
+  - node_modules/@neteasecloudmusicapienhanced/**/*
 asar: true
 asarUnpack:
-  - node_modules/NeteaseCloudMusicApi/**/*
+  - node_modules/@neteasecloudmusicapienhanced/**/*
 mac:
   category: public.app-category.music
   target:

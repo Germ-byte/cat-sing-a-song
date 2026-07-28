@@ -54,10 +54,20 @@ export async function searchSongs(keywords: string, limit = 30, offset = 0): Pro
 // ===== 获取播放地址 =====
 export async function getSongUrl(id: number): Promise<string> {
   try {
+    // 先尝试高品质
     const { data } = await api.get('/song/url/v1', {
-      params: { id, level: 'standard' },
+      params: { id, level: 'exhigh', cookie: 'os=pc' },
     })
-    return data?.data?.[0]?.url || ''
+    const info = data?.data?.[0]
+    // 如果是试听片段或无URL，降级尝试
+    if (!info?.url || info?.freeTrialInfo) {
+      const { data: fallback } = await api.get('/song/url/v1', {
+        params: { id, level: 'standard', cookie: 'os=pc' },
+      })
+      const fbInfo = fallback?.data?.[0]
+      if (fbInfo?.url && !fbInfo?.freeTrialInfo) return fbInfo.url
+    }
+    return info?.url || ''
   } catch (e) {
     console.error('获取播放地址失败:', e)
     return ''
@@ -102,6 +112,10 @@ const RANK_IDS: Record<string, number> = {
   '新歌榜': 3779629,
   '热歌榜': 3778678,
   '原创榜': 2884035,
+  '说唱榜': 991319590,
+  '古典榜': 71384707,
+  '电音榜': 1978921795,
+  'ACG榜': 71385702,
 }
 
 export function getRankNames() {

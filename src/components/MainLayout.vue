@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
-import LyricPanel from './LyricPanel.vue'
 import PlayerBar from './PlayerBar.vue'
-import { usePlayerStore } from '@/stores/player'
-
-const { showLyric } = storeToRefs(usePlayerStore())
 </script>
 <template>
   <div class="layout">
@@ -57,7 +52,6 @@ const { showLyric } = storeToRefs(usePlayerStore())
       </aside>
 
       <div class="content-area">
-        <!-- 主内容 -->
         <main class="main-content">
           <router-view v-slot="{ Component }">
             <transition name="fade" mode="out-in">
@@ -65,11 +59,6 @@ const { showLyric } = storeToRefs(usePlayerStore())
             </transition>
           </router-view>
         </main>
-        <transition name="lyric-slide">
-          <aside v-if="showLyric" class="lyric-sidebar">
-            <LyricPanel />
-          </aside>
-        </transition>
       </div>
     </div>
 
@@ -196,20 +185,5 @@ const { showLyric } = storeToRefs(usePlayerStore())
   min-width: 0;
   overflow-y: auto;
   background: var(--bg-primary);
-}
-.lyric-sidebar {
-  width: 320px;
-  flex-shrink: 0;
-  overflow: hidden;
-  border-left: 1px solid var(--border);
-}
-.lyric-slide-enter-active,
-.lyric-slide-leave-active {
-  transition: width 0.25s ease, opacity 0.25s ease;
-}
-.lyric-slide-enter-from,
-.lyric-slide-leave-to {
-  width: 0;
-  opacity: 0;
 }
 </style>

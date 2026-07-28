@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { storeToRefs } from 'pinia'
-import { formatDuration } from '@/api/music'
+import { formatDuration, getLyric } from '@/api/music'
+import { parseLrc, findCurrentLine, type LyricLine } from '@/utils/lyricParser'
 
 const store = usePlayerStore()
 const { currentSong, isPlaying, currentTime, duration, volume, isMuted, playMode, progress, showLyric } = storeToRefs(store)
@@ -20,9 +21,30 @@ function onProgressClick(e: MouseEvent) {
   const rect = el.getBoundingClientRect()
   store.seek(((e.clientX - rect.left) / rect.width) * duration.value)
 }
+
+const lyricLines = ref<LyricLine[]>([])
+
+watch(() => currentSong.value?.id, async (id) => {
+  lyricLines.value = []
+  if (!id) return
+  const lrc = await getLyric(id)
+  lyricLines.value = parseLrc(lrc)
+}, { immediate: true })
+
+const currentLineIdx = computed(() => findCurrentLine(lyricLines.value, currentTime.value))
+const currentLyricLine = computed(() => lyricLines.value[currentLineIdx.value]?.text || '')
+const nextLyricLine = computed(() => lyricLines.value[currentLineIdx.value + 1]?.text || '')
 </script>
 
 <template>
+  <!-- 汽水音乐风格歌词条 -->
+  <div v-if="showLyric && currentSong" class="lyric-bar" @click="store.toggleLyric">
+    <div class="lyric-bar-inner">
+      <p v-if="currentLyricLine" class="lyric-current">{{ currentLyricLine }}</p>
+      <p v-if="nextLyricLine" class="lyric-next">{{ nextLyricLine }}</p>
+      <p v-if="!currentLyricLine && !nextLyricLine" class="lyric-empty">暂无歌词</p>
+    </div>
+  </div>
   <footer class="player-bar">
     <!-- 左：歌曲信息 -->
     <div class="player-song">
@@ -219,5 +241,39 @@ function onProgressClick(e: MouseEvent) {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.lyric-bar {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(12, 26, 46, 0.95);
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.lyric-bar-inner {
+  text-align: center;
+  max-width: 600px;
+}
+.lyric-current {
+  font-size: 16px;
+  font-weight: 600;
+  color: #4cd964;
+  margin: 0;
+  line-height: 1.4;
+}
+.lyric-next {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 2px 0 0;
+  line-height: 1.4;
+}
+.lyric-empty {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
 }
 </style>

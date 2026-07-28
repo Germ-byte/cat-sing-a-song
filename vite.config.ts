@@ -23,7 +23,7 @@ export default defineConfig({
           build: {
             outDir: 'dist-electron',
             rollupOptions: {
-              external: ['electron', 'NeteaseCloudMusicApi'],
+              external: ['electron', '@neteasecloudmusicapienhanced/api'],
             },
           },
         },

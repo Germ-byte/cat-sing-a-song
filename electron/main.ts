@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
 import net from 'net'
+import Module from 'module'
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged
 const API_PORT = 35490
@@ -20,6 +21,17 @@ function isPortAvailable(port: number): Promise<boolean> {
   })
 }
 
+// 获取 API 模块路径（打包后在 app.asar.unpacked 中）
+function getApiModulePath(): string {
+  if (isDev) {
+    return '@neteasecloudmusicapienhanced/api'
+  }
+  // 打包后，asarUnpack 的模块在 app.asar.unpacked/node_modules 下
+  const appPath = app.getAppPath()
+  const unpackedPath = appPath.replace('app.asar', 'app.asar.unpacked')
+  return path.join(unpackedPath, 'node_modules', '@neteasecloudmusicapienhanced', 'api')
+}
+
 // 启动内嵌的网易云音乐 API 服务
 async function startMusicApiServer() {
   try {
@@ -28,7 +40,9 @@ async function startMusicApiServer() {
       console.log(`⚡ 端口 ${API_PORT} 已被占用，API 服务可能已在运行，跳过启动`)
       return
     }
-    const { serveNcmApi } = require('NeteaseCloudMusicApi')
+    const apiPath = getApiModulePath()
+    console.log(`📦 加载API模块: ${apiPath}`)
+    const { serveNcmApi } = require(apiPath)
     await serveNcmApi({
       port: API_PORT,
       host: '127.0.0.1',

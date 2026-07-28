@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { getNewSongs, getRecommendPlaylists, formatDuration, formatPlayCount, type Song } from '@/api/music'
+import { getNewSongs, getRecommendPlaylists, getPlaylistSongs, formatDuration, formatPlayCount, type Song } from '@/api/music'
 import { usePlayerStore } from '@/stores/player'
 
 interface Playlist {
@@ -25,6 +25,11 @@ function search() {
 
 function playSong(song: Song) {
   store.play(song)
+}
+
+async function onPlaylistClick(playlistId: number) {
+  const songs = await getPlaylistSongs(playlistId)
+  if (songs.length) store.playAll(songs)
 }
 
 onMounted(async () => {
@@ -58,7 +63,7 @@ onMounted(async () => {
       <section class="music-section">
         <h1 class="section-title">推荐歌单</h1>
         <div class="playlist-grid">
-          <article v-for="playlist in playlists" :key="playlist.id" class="grid-card">
+          <article v-for="playlist in playlists" :key="playlist.id" class="grid-card" @click="onPlaylistClick(playlist.id)" style="cursor:pointer">
             <div class="cover">
               <img v-if="playlist.cover" :src="playlist.cover" :alt="playlist.name" />
               <div v-else class="cover-placeholder">♪</div>
