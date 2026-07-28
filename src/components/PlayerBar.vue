@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
 import { usePlayerStore } from '@/stores/player'
 import { storeToRefs } from 'pinia'
 import { formatDuration, getLyric } from '@/api/music'
@@ -22,29 +22,79 @@ function onProgressClick(e: MouseEvent) {
   store.seek(((e.clientX - rect.left) / rect.width) * duration.value)
 }
 
-const lyricLines = ref<LyricLine[]>([])
+// ===== 桌面歌词浮窗 IPC 同步（只传 songId + currentTime + isPlaying）=====
+let syncTimer: ReturnType<typeof setInterval> | null = null
+let cleanupLyricClosed: (() => void) | null = null
+let lastSentSongId = 0
 
-watch(() => currentSong.value?.id, async (id) => {
-  lyricLines.value = []
-  if (!id) return
-  const lrc = await getLyric(id)
-  lyricLines.value = parseLrc(lrc)
-}, { immediate: true })
+function startLyricSync() {
+  if (syncTimer) return
+  // 立即发一次当前歌曲信息
+  sendSongInfo()
+  // 每 200ms 同步播放时间
+  syncTimer = setInterval(() => {
+    if (showLyric.value) {
+      window.electronAPI?.syncLyricData({
+        currentTime: currentTime.value,
+        isPlaying: isPlaying.value,
+      })
+    }
+  }, 200)
+}
 
-const currentLineIdx = computed(() => findCurrentLine(lyricLines.value, currentTime.value))
-const currentLyricLine = computed(() => lyricLines.value[currentLineIdx.value]?.text || '')
-const nextLyricLine = computed(() => lyricLines.value[currentLineIdx.value + 1]?.text || '')
+function stopLyricSync() {
+  if (syncTimer) {
+    clearInterval(syncTimer)
+    syncTimer = null
+  }
+  lastSentSongId = 0
+}
+
+function sendSongInfo() {
+  if (!currentSong.value) return
+  lastSentSongId = currentSong.value.id
+  window.electronAPI?.syncLyricData({
+    songId: currentSong.value.id,
+    songName: currentSong.value.name,
+    artistName: currentSong.value.artists,
+    currentTime: currentTime.value,
+    isPlaying: isPlaying.value,
+  })
+}
+
+// 「词」按钮开关歌词浮窗
+watch(showLyric, (val) => {
+  if (val) startLyricSync()
+  else stopLyricSync()
+})
+
+// 歌曲切换时发送新歌曲 ID
+watch(() => currentSong.value?.id, (newId) => {
+  if (showLyric.value && newId && newId !== lastSentSongId) {
+    sendSongInfo()
+  }
+})
+
+onMounted(() => {
+  // 浮窗被用户关闭时同步状态
+  cleanupLyricClosed = window.electronAPI?.onDesktopLyricClosed?.(() => {
+    showLyric.value = false
+    stopLyricSync()
+  }) || null
+
+  // 浮窗加载就绪时发送当前歌曲信息
+  window.electronAPI?.onDesktopLyricReady?.(() => {
+    if (showLyric.value) sendSongInfo()
+  })
+})
+
+onUnmounted(() => {
+  stopLyricSync()
+  cleanupLyricClosed?.()
+})
 </script>
 
 <template>
-  <!-- 汽水音乐风格歌词条 -->
-  <div v-if="showLyric && currentSong" class="lyric-bar" @click="store.toggleLyric">
-    <div class="lyric-bar-inner">
-      <p v-if="currentLyricLine" class="lyric-current">{{ currentLyricLine }}</p>
-      <p v-if="nextLyricLine" class="lyric-next">{{ nextLyricLine }}</p>
-      <p v-if="!currentLyricLine && !nextLyricLine" class="lyric-empty">暂无歌词</p>
-    </div>
-  </div>
   <footer class="player-bar">
     <!-- 左：歌曲信息 -->
     <div class="player-song">
@@ -97,7 +147,7 @@ const nextLyricLine = computed(() => lyricLines.value[currentLineIdx.value + 1]?
       <button
         class="lyric-toggle"
         :class="{ active: showLyric }"
-        title="歌词"
+        title="桌面歌词"
         @click="store.toggleLyric"
       >
         词
@@ -241,39 +291,5 @@ const nextLyricLine = computed(() => lyricLines.value[currentLineIdx.value + 1]?
 
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-.lyric-bar {
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(12, 26, 46, 0.95);
-  border-top: 1px solid var(--border);
-  cursor: pointer;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-.lyric-bar-inner {
-  text-align: center;
-  max-width: 600px;
-}
-.lyric-current {
-  font-size: 16px;
-  font-weight: 600;
-  color: #4cd964;
-  margin: 0;
-  line-height: 1.4;
-}
-.lyric-next {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 2px 0 0;
-  line-height: 1.4;
-}
-.lyric-empty {
-  font-size: 14px;
-  color: var(--text-muted);
-  margin: 0;
 }
 </style>

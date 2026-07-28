@@ -53,25 +53,30 @@ export async function searchSongs(keywords: string, limit = 30, offset = 0): Pro
 
 // ===== 获取播放地址 =====
 export async function getSongUrl(id: number): Promise<string> {
+  // 优先用旧接口（更稳定），再用 v1 接口尝试
   try {
-    // 先尝试高品质
-    const { data } = await api.get('/song/url/v1', {
-      params: { id, level: 'exhigh', cookie: 'os=pc' },
+    const { data } = await api.get('/song/url', {
+      params: { id, br: 320000 },
     })
     const info = data?.data?.[0]
-    // 如果是试听片段或无URL，降级尝试
-    if (!info?.url || info?.freeTrialInfo) {
-      const { data: fallback } = await api.get('/song/url/v1', {
-        params: { id, level: 'standard', cookie: 'os=pc' },
-      })
-      const fbInfo = fallback?.data?.[0]
-      if (fbInfo?.url && !fbInfo?.freeTrialInfo) return fbInfo.url
-    }
-    return info?.url || ''
+    if (info?.url && !info?.freeTrialInfo) return info.url
   } catch (e) {
-    console.error('获取播放地址失败:', e)
-    return ''
+    // ignore
   }
+  // 旧接口失败，尝试 v1 接口
+  for (const level of ['standard', 'higher', 'exhigh']) {
+    try {
+      const { data } = await api.get('/song/url/v1', {
+        params: { id, level },
+      })
+      const info = data?.data?.[0]
+      if (info?.url && !info?.freeTrialInfo) return info.url
+    } catch (e) {
+      // 继续下一个
+    }
+  }
+  console.error('无法获取播放地址, id:', id)
+  return ''
 }
 
 // ===== 获取歌词 =====

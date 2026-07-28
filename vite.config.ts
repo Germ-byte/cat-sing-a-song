@@ -11,6 +11,14 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src'),
     },
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        'desktop-lyric': path.resolve(__dirname, 'desktop-lyric.html'),
+      },
+    },
+  },
   plugins: [
     vue(),
     electron([

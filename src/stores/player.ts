@@ -42,7 +42,6 @@ export const usePlayerStore = defineStore('player', () => {
     }
     if (!url) {
       console.error('无法获取播放地址, id:', song.id)
-      // 尝试下一首
       playNext()
       return
     }
@@ -109,7 +108,12 @@ export const usePlayerStore = defineStore('player', () => {
     const modes: PlayMode[] = ['sequence', 'loop', 'random', 'single']
     playMode.value = modes[(modes.indexOf(playMode.value) + 1) % modes.length]
   }
-  function toggleLyric() { showLyric.value = !showLyric.value }
+
+  function toggleLyric() {
+    showLyric.value = !showLyric.value
+    // 直接控制桌面歌词浮窗
+    window.electronAPI?.toggleDesktopLyric(showLyric.value)
+  }
 
   function addToPlaylist(song: Song) {
     if (!playlist.value.some(s => s.id === song.id)) playlist.value.push(song)
@@ -124,7 +128,6 @@ export const usePlayerStore = defineStore('player', () => {
   }
   function clearHistory() { playHistory.value = [] }
 
-  // 播放全部
   function playAll(songs: Song[]) {
     playlist.value = [...songs]
     if (songs.length) {
